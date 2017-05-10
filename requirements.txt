@@ -8,5 +8,5 @@ PyYAML==3.12
 python-dateutil==2.6.0
 fasteners==0.14.1
 fake-useragent==0.1.4
-requests==2.13.0
+requests==2.14.2
 requests-cache==0.4.13
