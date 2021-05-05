@@ -9,4 +9,4 @@ python-dateutil>=2.6.0
 fasteners>=0.14.1
 fake-useragent>=0.1.4
 requests>=2.13.0
-six
+six==1.16.0
