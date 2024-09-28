@@ -54,7 +54,6 @@ load-plugins=
 # E1101: member check...this is usually wrong.
 # E1103: type inference...this is usually wrong.
 # F0401: unable to import
-# R0201: method should be function check.
 # R0401: cyclic import check...because sometimes it's wrong.
 # R0902: too many instance attributes check.
 # R0903: too few public methods check...makes no sense with Django.
@@ -93,7 +92,7 @@ load-plugins=
 # R0101: *Too many nested blocks (%s/%s)*
 # I0011: *Locally disabling %s (%s)*
 # W1001: *Use of "property" on an old style class*
-disable=C0103,R0201,W0212,W0614,W0401,E1101,R0904,R0913,W0404,R0903,C0111,W0613,W0612,W0511,W0104,R0902,R0401,E1103,W0311,F0401,E1120,R0901,E1123,C0302,R0801,R0914,R0912,R0915,W0703,E1003,E0202,W0201,W0221,C0325,R0916,R0101,I0011,inconsistent-return-statements
+disable=C0103,W0212,W0614,W0401,E1101,R0904,R0913,W0404,R0903,C0111,W0613,W0612,W0511,W0104,R0902,R0401,E1103,W0311,F0401,E1120,R0901,E1123,C0302,R0801,R0914,R0912,R0915,W0703,E1003,E0202,W0201,W0221,C0325,R0916,R0101,I0011,inconsistent-return-statements,use-dict-literal
 
 [REPORTS]
 

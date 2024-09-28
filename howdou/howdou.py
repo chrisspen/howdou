@@ -4,10 +4,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-# Surpress ElasticsearchWarnings
+# Suppress ElasticsearchWarnings
 import warnings
 warnings.filterwarnings("ignore")
 
+# pylint: disable=wrong-import-position
 import argparse
 import datetime
 import os
@@ -36,8 +37,6 @@ from pygments.lexers import guess_lexer, get_lexer_by_name
 from pygments.formatters import TerminalFormatter # pylint: disable=no-name-in-module
 from pygments.util import ClassNotFound
 
-# import requests_cache
-
 try:
     from urllib.parse import quote as url_quote
 except ImportError:
@@ -56,16 +55,6 @@ from elasticsearch import Elasticsearch
 
 #from howdou import __version__
 from .__init__ import __version__
-
-# Handle unicode between Python 2 and 3
-# http://stackoverflow.com/a/6633040/305414
-if sys.version < '3':
-    import codecs
-    def u(x):
-        return codecs.unicode_escape_decode(x)[0]
-else:
-    def u(x):
-        return x
 
 LOCAL = 'local'
 REMOTE = 'remote'
@@ -103,7 +92,7 @@ LOCALIZATON_URLS = {
     'pt-br': 'pt.stackoverflow.com',
 }
 
-ANSWER_HEADER = u('--- Answer: {i} --- Weight: {weight} --- Source: {source} ---\n\n{answer}')
+ANSWER_HEADER = '--- Answer: {i} --- Weight: {weight} --- Source: {source} ---\n\n{answer}'
 
 NO_ANSWER_MSG = '< no answer given >'
 
@@ -127,7 +116,7 @@ def _represent_dictorder(self, data):
             _data.append((str(key), data.pop(key)))
     if data:
         _data.extend(data.items())
-    return self.represent_mapping(u'tag:yaml.org,2002:map', _data)
+    return self.represent_mapping('tag:yaml.org,2002:map', _data)
 
 # def _represent_tuple(self, data):
     # return self.represent_sequence(u'tag:yaml.org,2002:seq', data)
@@ -139,7 +128,7 @@ def _represent_dictorder(self, data):
     # return self.represent_scalar(u'tag:yaml.org,2002:null', u'null')
 
 def _selective_representer(dumper, data):
-    return dumper.represent_scalar(u"tag:yaml.org,2002:str", data, style="|" if "\n" in data else None)
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|" if "\n" in data else None)
 
 yaml.add_representer(str, _selective_representer)
 yaml.add_representer(dict, _represent_dictorder)
@@ -176,7 +165,7 @@ def get_link_at_pos(links, position):
     return link
 
 def touch(fname, times=None):
-    with open(fname, 'a'):
+    with open(fname, 'a', encoding='utf-8'):
         os.utime(fname, times)
 
 def get_text_hash(text):
@@ -195,7 +184,7 @@ def get_proxies():
     for key, value in proxies.items():
         if key.startswith('http'):
             if not value.startswith('http'):
-                filtered_proxies[key] = 'http://%s' % value
+                filtered_proxies[key] = f'http://{value}'
             else:
                 filtered_proxies[key] = value
     return filtered_proxies
@@ -215,33 +204,24 @@ class HowDoU():
     def __init__(self, **kwargs):
         kwargs.setdefault('verbose', False)
         self.__dict__.update(kwargs)
-
-        if self.verbose:
-            print('kwargs:')
-            pprint(kwargs, indent=4)
-        assert self.action in ACTIONS, 'Invalid action "%s". Must be one of %s' % (self.action, ', '.join(ACTIONS))
-
+        assert self.action in ACTIONS, f'Invalid action "{self.action}". Must be one of {", ".join(ACTIONS)}'
         self.cache_file = os.path.join(self.cache_dir, 'cache')
-
         self.query = (' '.join(self.query).replace('?', '')).strip()
-
         self.kb_filename = os.path.expanduser(self.kb_filename)
         self.kb_timestamp = os.path.expanduser(self.kb_timestamp)
         self.kb_app_dir = os.path.expanduser(self.kb_app_dir)
-
         self.append_header = False
-
         self.last_reindex_count = 0
 
     def delete_index(self):
         """
         Forcibly deletes the index from the server.
         """
-        print('Deleting index %s...' % self.kb_index_name)
+        print(f'Deleting index {self.kb_index_name}...')
         es = Elasticsearch()
         es.indices.delete(index=self.kb_index_name, ignore=[400, 404])
-        print('Deleting index cache at %s...' % self.kb_app_dir)
-        os.system('rm -Rf %s/*' % self.kb_app_dir)
+        print(f'Deleting index cache at {self.kb_app_dir}...')
+        os.system(f'rm -Rf {self.kb_app_dir}/*')
 
     def is_kb_updated(self):
         """
@@ -264,7 +244,7 @@ class HowDoU():
 
     def get_result(self, url):
         try:
-            return requests.get(url, headers={'User-Agent': ua.random}, proxies=get_proxies()).text
+            return requests.get(url, headers={'User-Agent': ua.random}, proxies=get_proxies(), timeout=30).text
         except SSLError as e:
             print('[ERROR] Encountered an SSL Error. Try using HTTP instead of '
                   'HTTPS by setting the environment variable "HOWDOU_DISABLE_SSL".\n')
@@ -328,7 +308,7 @@ class HowDoU():
                         texts.append(self.format_output(current_text))
                     else:
                         texts.append(current_text)
-            texts.append('\n---\nAnswer from {0}'.format(link))
+            texts.append(f'\n---\nAnswer from {link}')
             text = '\n'.join(texts)
         else:
             text = self.format_output(instructions.eq(0).text())
@@ -345,13 +325,14 @@ class HowDoU():
 
     def init_kb(self):
         if not os.path.isfile(self.kb_filename):
-            with open(self.kb_filename, 'w') as fout:
+            with open(self.kb_filename, 'w', encoding='utf-8') as fout:
                 fout.write(KNOWLEDGEBASE_STUB)
 
     def mark_indexed(self, question_str, answer_str):
         hash_fn = os.path.join(self.kb_app_dir, get_text_hash(question_str))
         hash_contents = get_text_hash(answer_str)
-        open(hash_fn, 'w').write(hash_contents)
+        with open(hash_fn, 'w', encoding='utf-8') as fout:
+            fout.write(hash_contents)
 
     def is_indexed(self, question_str, answer_str):
         """
@@ -362,8 +343,9 @@ class HowDoU():
         if not os.path.isfile(hash_fn):
             return False
         hash_contents = get_text_hash(answer_str)
-        if open(hash_fn).read() != hash_contents:
-            return False
+        with open(hash_fn, encoding='utf-8') as fin:
+            if fin.read() != hash_contents:
+                return False
         return True
 
     def add_item(self, item):
@@ -380,11 +362,11 @@ class HowDoU():
             answer.setdefault('weight', 1.0)
         item_str = yaml.dump([item], indent=4, default_flow_style=False)#, default_style='|')
         self.init_kb()
-        with open(self.kb_filename, 'a') as fout:
+        with open(self.kb_filename, 'a', encoding='utf-8') as fout:
             fout.write(item_str)
 
     def show_gui_error(self, message, detail):
-        getoutput('export DISPLAY=:0; notify-send "%s" "%s"' % (message, detail))
+        getoutput(f'export DISPLAY=:0; notify-send "{message}" "{detail}"')
 
     def count_total_kb_entries(self, fn=None):
         cnt = 0
@@ -409,21 +391,21 @@ class HowDoU():
             yield self.kb_filename
         fn = fn or self.kb_filename
         try:
-            for item in yaml.load(open(fn), Loader=yaml.FullLoader):
-                if isinstance(item, dict) and 'include' in item:
-                    # Handle special "include" entries that direct us to load an additional file.
-                    if only_filenames:
-                        yield item['include']
+            with open(fn, encoding='utf-8') as fin:
+                for item in yaml.load(fin, Loader=yaml.FullLoader):
+                    if isinstance(item, dict) and 'include' in item:
+                        # Handle special "include" entries that direct us to load an additional file.
+                        if only_filenames:
+                            yield item['include']
+                        else:
+                            yield from self.iter_kb(item['include'])
                     else:
-                        for _ in self.iter_kb(item['include']):
-                            yield _
-                else:
-                    # Otherwise, yield normal entry.
-                    # Dynamically add filename so it can be indexed and included in search results.
-                    item['filename'] = fn
-                    yield item
+                        # Otherwise, yield normal entry.
+                        # Dynamically add filename so it can be indexed and included in search results.
+                        item['filename'] = fn
+                        yield item
         except TypeError:
-            return
+            pass
 
     def index_kb(self):
         """
@@ -453,8 +435,7 @@ class HowDoU():
         for item in self.iter_kb(self.kb_filename):
 
             # Combine the list of separate questions into a single text block.
-            print('item:', item)
-            questions = u'\n'.join(map(str, item.get('questions') or []))
+            questions = '\n'.join(map(str, item.get('questions') or []))
             self.vprint('questions:', questions)
             if not questions:
                 print('Skipping due to missing questions.')
@@ -462,7 +443,7 @@ class HowDoU():
 
             for answer in item['answers']:
                 count += 1
-                sys.stdout.write('\rRe-indexing %i of %i...' % (count, total))
+                sys.stdout.write(f'\rRe-indexing {count} of {total}...')
                 sys.stdout.flush()
 
                 if not self.force and self.is_indexed(questions, answer['text']):
@@ -471,10 +452,7 @@ class HowDoU():
                 weight = float(answer.get('weight', 1))
                 dt = answer['date']
                 if isinstance(dt, str):
-                    try:
-                        dt = dateutil.parser.parse(dt)
-                    except ValueError as e:
-                        raise Exception('Invalid date: %s' % dt)
+                    dt = dateutil.parser.parse(dt)
 
                 text = questions + ' ' + answer['text']
 
@@ -509,7 +487,7 @@ class HowDoU():
         self.last_reindex_count = count
         es.indices.refresh(index=self.kb_index_name)
         self.update_kb_timestamp()
-        print('\nRe-indexed %i items.' % (count,))
+        print(f'\nRe-indexed {count} items.')
 
     def vprint(self, *args):
         if self.verbose:
@@ -536,9 +514,9 @@ class HowDoU():
                         },
                         "functions": [{
                             "script_score": {
-                                "script" : {
-                                  "lang": "painless",
-                                  "inline": "_score * doc['weight'].value"
+                                "script": {
+                                    "lang": "painless",
+                                    "source": "_score * doc['weight'].value"
                                 },
                             },
                         }],
@@ -554,18 +532,17 @@ class HowDoU():
             return results
 
         query = q or self.query
-        assert query and isinstance(query, str), 'Invalid query: %s' % query
+        assert query and isinstance(query, str), f'Invalid query: {query}'
         answers = []
         es = Elasticsearch()
-        self.vprint('Checking for local answers at index %s...' % self.kb_index_name)
+        self.vprint(f'Checking for local answers at index {self.kb_index_name}...')
         es.indices.create(index=self.kb_index_name, ignore=400)
 
         # https://elasticsearch-py.readthedocs.io/en/master/api.html#elasticsearch.Elasticsearch.search
-        #results = es.search(index=self.kb_index_name, body=es_query)
         for method in [lambda: _get_search_results(exact=True), lambda: _get_search_results(exact=False)]:
             results = method()
             total = len(results['hits']['hits'])
-            self.vprint('Found %i results.' % total)
+            self.vprint(f'Found {total} results.')
             hits = results['hits']['hits'][:self.num_answers]
             if self.verbose:
                 print('results:')
@@ -621,15 +598,8 @@ class HowDoU():
             with fasteners.InterProcessLock(self.kb_lockfile_path):
 
                 self.init_kb()
-
-                # enable the cache if user doesn't want it to be disabled
-                # if not self.disable_cache:
-                    # self.enable_cache()
-
                 self.append_header = self.num_answers > 1 or self.show_score or self.show_source
-                #initial_position = self.pos
-
-                self.vprint('Querying %s...' % query)
+                self.vprint(f'Querying {query}...')
 
                 # Check local index first.
                 #http://elasticsearch.org/guide/reference/query-dsl/
@@ -668,12 +638,12 @@ class HowDoU():
                 score = int(round(answer['score'] or 0, 0))
                 weight = int(answer['weight'] or 0)
                 s.append(ANSWER_HEADER.format(
-                    i=i+1,
-                    weight=score*weight,
+                    i=i + 1,
+                    weight=score * weight,
                     answer=answer['answer'],
                     source=source))
 
-            output_str = u'\n' + (u'\n\n'.join(s)) + u'\n'
+            output_str = '\n' + ('\n\n'.join(s)) + '\n'
             output_str.encode('utf-8', 'replace')
             try:
                 # Try to print unicode.
@@ -727,120 +697,41 @@ class HowDoU():
         yaml.dump(data, stream=sys.stdout, default_flow_style=False, indent=4)
 
     def run(self):
-        run_func = 'run_%s' % self.action.replace('-', '_')
+        run_func = f"run_{self.action.replace('-', '_')}"
         if hasattr(self, run_func):
             return getattr(self, run_func)()
-        raise AttributeError('Invalid action: %s' % self.action)
+        raise AttributeError(f'Invalid action: {self.action}')
 
 
 def get_parser():
     parser = argparse.ArgumentParser(description='instant coding answers via the command line')
-
-    # General purpose options.
-    parser.add_argument(
-        '-v', '--version',
-        help='Show version.',
-        action='version',
-        version=__version__,
-    )
-    parser.add_argument(
-        '--verbose',
-        help='If given, provides excessive output.',
-        default=False,
-        action='store_true')
-    parser.add_argument(
-        '--kb-filename',
-        help='The knowledge base filename.',
-        default=KNOWLEDGEBASE_FN)
-    parser.add_argument(
-        '--kb-index-name',
-        help='The knowledge base index name to register in Elasticsearch',
-        default=KNOWLEDGEBASE_INDEX)
-    parser.add_argument(
-        '--kb-timestamp',
-        help='The filename to use to tracking timestamps.',
-        default=KNOWLEDGEBASE_TIMESTAMP_FN)
-    parser.add_argument(
-        '--kb-app-dir',
-        help='The filename to use to tracking timestamps.',
-        default=APP_DATA_DIR)
-    parser.add_argument(
-        '--kb-lockfile-path',
-        help='The filename to use when locking access during updates.',
-        default=LOCKFILE_PATH)
-    parser.add_argument(
-        '--cache-dir',
-        help='The filename to use when caching web requests.',
-        default=CACHE_DIR)
-    parser.add_argument(
-        '--lang',
-        help='The localization to use. Default is %s.' % LOCALIZATION,
-        default=LOCALIZATION)
-
-    # This controls the core behavior initiated from the command line.
-    parser.add_argument(
-        '--action',
-        help='Action to perform. One of %s' % ('|'.join(ACTIONS)),
-        default=QUERY)
-
-    # Query action options.
-    parser.add_argument(
-        'query', metavar='QUERY', type=str, nargs='*',
-        help='The question to answer or keywords to search by. Used with the query action.')
-    parser.add_argument(
-        '-p', '--pos',
-        help='select answer in specified position (default: 1)',
-        default=1, type=int)
-    parser.add_argument(
-        '-a', '--all', help='display the full text of the answer',
-        action='store_true')
-    parser.add_argument(
-        '-l', '--link', help='display only the answer link',
-        action='store_true')
-    parser.add_argument(
-        '-c', '--color', help='enable colorized output',
-        action='store_true')
-    parser.add_argument(
-        '-n', '--num-answers',
-        help='number of answers to return',
-        default=1, type=int)
-    parser.add_argument(
-        '--min-score',
-        help='the minimum score accepted on local answers',
-        default=-1, type=float)
-    parser.add_argument(
-        '--ignore-local',
-        help='ignore local cache',
-        default=False,
-        action='store_true')
-    parser.add_argument(
-        '--ignore-remote',
-        help='ignore remote',
-        default=False,
-        action='store_true')
-    parser.add_argument(
-        '--show-score',
-        help='display score of all results',
-        default=False,
-        action='store_true')
-    parser.add_argument(
-        '--hide-source',
-        help='displays any source linked to the answer',
-        dest='show_source',
-        default=True,
-        action='store_false')
-    # parser.add_argument(
-        # '--disable-cache',
-        # help='Disables cache of web requests.',
-        # default=bool(os.getenv('HOWDOU_DISABLE_CACHE')),
-        # action='store_true')
-
-    # Reindex action options.
-    parser.add_argument(
-        '--force',
-        help='Used with the reindex option, forces reindexing of all items even if no change was made',
-        default=False,
-        action='store_true')
+    parser.add_argument('-v', '--version', help='Show version.', action='version', version=__version__)
+    parser.add_argument('--verbose', help='If given, provides excessive output.', default=False, action='store_true')
+    parser.add_argument('--kb-filename', help='The knowledge base filename.', default=KNOWLEDGEBASE_FN)
+    parser.add_argument('--kb-index-name', help='The knowledge base index name to register in Elasticsearch',
+                        default=KNOWLEDGEBASE_INDEX)
+    parser.add_argument('--kb-timestamp', help='The filename to use to track timestamps.', default=KNOWLEDGEBASE_TIMESTAMP_FN)
+    parser.add_argument('--kb-app-dir', help='The filename to use to tracking timestamps.', default=APP_DATA_DIR)
+    parser.add_argument('--kb-lockfile-path', help='The filename to use when locking access during updates.',
+                        default=LOCKFILE_PATH)
+    parser.add_argument('--cache-dir', help='The filename to use when caching web requests.', default=CACHE_DIR)
+    parser.add_argument('--lang', help=f'The localization to use. Default is {LOCALIZATION}.', default=LOCALIZATION)
+    parser.add_argument('--action', help=f'Action to perform. One of {"|".join(ACTIONS)}', default=QUERY)
+    parser.add_argument('query', metavar='QUERY', type=str, nargs='*',
+                        help='The question to answer or keywords to search by. Used with the query action.')
+    parser.add_argument('-p', '--pos', help='select answer in specified position (default: 1)', default=1, type=int)
+    parser.add_argument('-a', '--all', help='display the full text of the answer', action='store_true')
+    parser.add_argument('-l', '--link', help='display only the answer link', action='store_true')
+    parser.add_argument('-c', '--color', help='enable colorized output', action='store_true')
+    parser.add_argument('-n', '--num-answers', help='number of answers to return', default=1, type=int)
+    parser.add_argument('--min-score', help='the minimum score accepted on local answers', default=-1, type=float)
+    parser.add_argument('--ignore-local', help='ignore local cache', default=False, action='store_true')
+    parser.add_argument('--ignore-remote', help='ignore remote', default=False, action='store_true')
+    parser.add_argument('--show-score', help='display score of all results', default=False, action='store_true')
+    parser.add_argument('--hide-source', help='displays any source linked to the answer', dest='show_source',
+                        default=True, action='store_false')
+    parser.add_argument('--force', help='Used with the reindex option, forces reindexing of all items even if no change was made',
+                        default=False, action='store_true')
 
     return parser
 

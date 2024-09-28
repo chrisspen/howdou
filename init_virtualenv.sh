@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-VENV=.env39
+VENV=.env
 [ -d $VENV ] && rm -Rf $VENV || true
 python3.9 -m venv $VENV
 . $VENV/bin/activate

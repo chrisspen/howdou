@@ -6,4 +6,4 @@ then
     echo "Please source this script. Do not execute."
     exit 1
 fi
-. .env39/bin/activate
+. .env/bin/activate
