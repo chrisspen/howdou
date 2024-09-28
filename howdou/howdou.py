@@ -53,7 +53,6 @@ from pyquery import PyQuery as pq
 
 from elasticsearch import Elasticsearch
 
-#from howdou import __version__
 from .__init__ import __version__
 
 LOCAL = 'local'
@@ -118,24 +117,11 @@ def _represent_dictorder(self, data):
         _data.extend(data.items())
     return self.represent_mapping('tag:yaml.org,2002:map', _data)
 
-# def _represent_tuple(self, data):
-    # return self.represent_sequence(u'tag:yaml.org,2002:seq', data)
-
-# def _construct_tuple(self, node):
-    # return tuple(self.construct_sequence(node))
-
-# def _represent_function(self, data):
-    # return self.represent_scalar(u'tag:yaml.org,2002:null', u'null')
-
 def _selective_representer(dumper, data):
     return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|" if "\n" in data else None)
 
 yaml.add_representer(str, _selective_representer)
 yaml.add_representer(dict, _represent_dictorder)
-# yaml.add_representer(_AliasDict, _represent_dictorder)
-#yaml.add_representer(tuple, _represent_tuple) # we need tuples for hash keys
-# yaml.add_constructor(u'tag:yaml.org,2002:python/tuple', _construct_tuple)
-# yaml.add_representer(types.FunctionType, _represent_function)
 
 def get_nested_key(element, keys):
     """
@@ -213,12 +199,24 @@ class HowDoU():
         self.append_header = False
         self.last_reindex_count = 0
 
+    def get_es(self):
+        return  Elasticsearch(
+            hosts=[{
+                'host': 'localhost',
+                'port': 9200,
+                'scheme': 'http'
+            }],
+            verify_certs=False,
+            ssl_show_warn=False,
+            request_timeout=30,
+        )
+
     def delete_index(self):
         """
         Forcibly deletes the index from the server.
         """
         print(f'Deleting index {self.kb_index_name}...')
-        es = Elasticsearch()
+        es = self.get_es()
         es.indices.delete(index=self.kb_index_name, ignore=[400, 404])
         print(f'Deleting index cache at {self.kb_app_dir}...')
         os.system(f'rm -Rf {self.kb_app_dir}/*')
@@ -391,6 +389,7 @@ class HowDoU():
             yield self.kb_filename
         fn = fn or self.kb_filename
         try:
+            print(f'Loading knowledgebase file {fn}.')
             with open(fn, encoding='utf-8') as fin:
                 for item in yaml.load(fin, Loader=yaml.FullLoader):
                     if isinstance(item, dict) and 'include' in item:
@@ -411,7 +410,7 @@ class HowDoU():
         """
         Processes all knowledgebase entries and enters them into the text search database.
         """
-        es = Elasticsearch()
+        es = self.get_es()
         count = 0
 
         if not os.path.isdir(self.kb_app_dir):
@@ -477,7 +476,6 @@ class HowDoU():
                 es.index(
                     id=_id,
                     index=self.kb_index_name,
-                    doc_type='text',
                     body=doc,
                 )
 
@@ -508,7 +506,8 @@ class HowDoU():
                         'query': {
                             'query_string':{
                                 'query': query,
-                                'fields': ['questions'],
+                                # 'fields': ['questions'],
+                                'fields': ['text'],
                                 'default_operator': 'AND' if exact else 'OR',
                             },
                         },
@@ -534,7 +533,7 @@ class HowDoU():
         query = q or self.query
         assert query and isinstance(query, str), f'Invalid query: {query}'
         answers = []
-        es = Elasticsearch()
+        es = self.get_es()
         self.vprint(f'Checking for local answers at index {self.kb_index_name}...')
         es.indices.create(index=self.kb_index_name, ignore=400)
 

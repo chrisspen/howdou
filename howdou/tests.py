@@ -181,13 +181,10 @@ class HowdouTestCase(TestCase):
 
     def test_local_cache_index(self):
 
-#         args = vars(parser.parse_args(query.split(' ')))
-#         hdu = HowDoU(**args).run()
-
         # Create a seed knowledge base.
         self.howdou.init_kb()
         self.assertTrue(os.path.isfile(howdou.KNOWLEDGEBASE_FN))
-        os.system('cat %s' % howdou.KNOWLEDGEBASE_FN)
+        os.system(f'cat {howdou.KNOWLEDGEBASE_FN}')
 
         # Confirm there's nothing yet indexed in our knowledge base.
         self.assertFalse(self.howdou.is_indexed(
@@ -227,7 +224,8 @@ answers:
         print('item:', item)
         self.howdou.add_item(item)
         print('kb:', self.howdou.kb_filename)
-        print(open(self.howdou.kb_filename).read())
+        with open(self.howdou.kb_filename, encoding='utf-8') as fin:
+            print(fin.read())
         self.howdou.reindex()
         self.assertEqual(self.howdou.last_reindex_count, 2)
 
@@ -286,7 +284,7 @@ answers:
 class HowdouTestCaseEnvProxies(TestCase):
 
     def setUp(self):
-        super(HowdouTestCaseEnvProxies, self).setUp()
+        super().setUp()
         self.temp_get_proxies = howdou.getproxies
 
     def tearDown(self):
@@ -303,7 +301,7 @@ class HowdouTestCaseEnvProxies(TestCase):
         filtered_proxies = howdou.get_proxies()
         self.assertTrue('http://' in filtered_proxies['http'])
         self.assertTrue('http://' in filtered_proxies['https'])
-        self.assertTrue('ftp' not in filtered_proxies.keys())
+        self.assertTrue('ftp' not in filtered_proxies)
 
 
 if __name__ == '__main__':
