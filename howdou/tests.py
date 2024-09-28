@@ -19,7 +19,8 @@ from . import howdou
 from .howdou import HowDoU, get_parser
 
 # We throttle our queries, since they touch Google and if we go too fast Google starts throwing 404 errors.
-random_wait = lambda: sleep(randint(2, 6))
+def random_wait():
+    sleep(randint(2, 6))
 
 def _getattribute(cls, self, attrname):
 
@@ -32,8 +33,7 @@ def _getattribute(cls, self, attrname):
                 return func(*args, **kwargs)
             except Exception as e:
                 print('!'*80, file=sys.stderr)
-                print('An exception was encountered in test method %s.' \
-                    % self._testMethodName, file=sys.stderr)
+                print(f'An exception was encountered in test method {self._testMethodName}.', file=sys.stderr)
                 traceback.print_exc(file=sys.stderr)
                 print('!'*80, file=sys.stderr)
                 raise
@@ -59,7 +59,7 @@ class TestCase(_TestCase):
             name=self._testMethodName,
         )
         print(self.test_name_format.format(**kwargs), file=self.test_name_fout)
-        super(TestCase, self).setUp()
+        super().setUp()
 
 class HowdouTestCase(TestCase):
 
@@ -70,7 +70,7 @@ class HowdouTestCase(TestCase):
         return ret
 
     def setUp(self):
-        super(HowdouTestCase, self).setUp()
+        super().setUp()
 
         self.queries = [
             'format date bash',
@@ -105,7 +105,7 @@ class HowdouTestCase(TestCase):
         ]
         for path in delete_paths:
             try:
-                os.system('rm -Rf "%s"' % path)
+                os.system(f'rm -Rf "{path}"')
             except OSError:#FileNotFoundError:
                 pass
 

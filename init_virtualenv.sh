@@ -1,5 +1,8 @@
 #!/bin/bash
-[ -d .env2.7 ] && rm -Rf .env2.7
-virtualenv .env2.7
-. .env2.7/bin/activate
-pip install -r requirements.txt
+set -e
+VENV=.env39
+[ -d $VENV ] && rm -Rf $VENV || true
+python3.9 -m venv $VENV
+. $VENV/bin/activate
+pip install -U pip wheel setuptools
+pip install -r requirements.txt -r requirements-test.txt

@@ -4,9 +4,12 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+# Surpress ElasticsearchWarnings
+import warnings
+warnings.filterwarnings("ignore")
+
 import argparse
 import datetime
-# import glob
 import os
 import re
 import sys
@@ -19,11 +22,7 @@ except ImportError:
     from subprocess import getoutput
 from collections import defaultdict
 
-#https://pythonhosted.org/six/
-from six import text_type, string_types
-
 import requests
-#from requests.exceptions import ConnectionError # pylint: disable=redefined-builtin
 from requests.exceptions import SSLError
 
 import yaml
@@ -54,7 +53,6 @@ import fasteners
 from pyquery import PyQuery as pq
 
 from elasticsearch import Elasticsearch
-#from elasticsearch.exceptions import NotFoundError
 
 #from howdou import __version__
 from .__init__ import __version__
@@ -144,7 +142,6 @@ def _selective_representer(dumper, data):
     return dumper.represent_scalar(u"tag:yaml.org,2002:str", data, style="|" if "\n" in data else None)
 
 yaml.add_representer(str, _selective_representer)
-yaml.add_representer(text_type, _selective_representer)
 yaml.add_representer(dict, _represent_dictorder)
 # yaml.add_representer(_AliasDict, _represent_dictorder)
 #yaml.add_representer(tuple, _represent_tuple) # we need tuples for hash keys
@@ -187,8 +184,8 @@ def get_text_hash(text):
     Returns the hash of the given text.
     """
     h = hashlib.sha512()
-    if not isinstance(text, text_type):
-        text = text_type(text, encoding='utf-8', errors='replace')
+    if not isinstance(text, str):
+        text = str(text, encoding='utf-8', errors='replace')
     h.update(text.encode('utf-8', 'replace'))
     return h.hexdigest()
 
@@ -457,7 +454,7 @@ class HowDoU():
 
             # Combine the list of separate questions into a single text block.
             print('item:', item)
-            questions = u'\n'.join(map(text_type, item.get('questions') or []))
+            questions = u'\n'.join(map(str, item.get('questions') or []))
             self.vprint('questions:', questions)
             if not questions:
                 print('Skipping due to missing questions.')
@@ -473,7 +470,7 @@ class HowDoU():
 
                 weight = float(answer.get('weight', 1))
                 dt = answer['date']
-                if isinstance(dt, string_types):
+                if isinstance(dt, str):
                     try:
                         dt = dateutil.parser.parse(dt)
                     except ValueError as e:
@@ -503,9 +500,6 @@ class HowDoU():
                     id=_id,
                     index=self.kb_index_name,
                     doc_type='text',
-    #                properties=dict(
-    #                    text=dict(type='string', boost=weight)
-    #                ),
                     body=doc,
                 )
 
@@ -560,7 +554,7 @@ class HowDoU():
             return results
 
         query = q or self.query
-        assert query and isinstance(query, string_types), 'Invalid query: %s' % query
+        assert query and isinstance(query, str), 'Invalid query: %s' % query
         answers = []
         es = Elasticsearch()
         self.vprint('Checking for local answers at index %s...' % self.kb_index_name)
